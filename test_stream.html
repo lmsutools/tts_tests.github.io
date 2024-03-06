@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>LMSU TTS Server Test</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    
+    h1 {
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 20px;
+    }
+    
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .player {
+      margin-bottom: 20px;
+    }
+    
+    .request-button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    .request-button:hover {
+      background-color: #0056b3;
+    }
+    
+    .stats {
+      margin-top: 20px;
+      font-size: 14px;
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    
+    .stats p {
+      margin: 5px 0;
+    }
+    
+    .server-url {
+      margin-top: 20px;
+    }
+    
+    .server-url label {
+      font-weight: bold;
+    }
+    
+    .server-url input {
+      width: 100%;
+      padding: 8px;
+      font-size: 14px;
+      border: 1px solid #ced4da;
+      border-radius: 5px;
+      margin-top: 5px;
+    }
+
+    .endpoint-selection {
+      margin-top: 20px;
+    }
+    
+    .endpoint-selection label {
+      display: block;
+      margin-bottom: 10px;
+    }
+    
+    .endpoint-selection input[type="radio"] {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+    <div class="container">
+      <h1>TTS Stream Test</h1>
+      
+      <div class="player">
+        <audio id="audioPlayer" autoplay></audio>
+      </div>
+      
+      <div>
+        <button id="requestButton" class="request-button">Send Request</button>
+      </div>
+      
+      <div class="stats">
+        <p>Response Time: <span id="responseTime"></span> ms</p>
+        <p>Playback Start Time: <span id="playbackStartTime"></span> ms</p>
+      </div>
+      
+      <div class="server-url">
+        <label for="serverUrl">Server URL:</label>
+        <input type="text" id="serverUrl" placeholder="Enter server URL">
+      </div>
+      
+      <div class="text-sent">
+        <p>Text Sent: <span id="textSent"></span></p>
+      </div>
+      
+      <div class="message-length">
+        <label>Select Message Length:</label>
+        <label>
+          <input type="radio" name="messageLength" value="short" checked> Short (up to 5 words)
+        </label>
+        <label>
+          <input type="radio" name="messageLength" value="medium"> Medium (15 to 22 words)
+        </label>
+        <label>
+          <input type="radio" name="messageLength" value="long"> Long (50 to 120 words)
+        </label>
+      </div>
+      
+      <div class="endpoint-selection">
+        <label>Select Endpoint:</label>
+        <label>
+          <input type="radio" name="endpointType" value="streaming" checked> Use Streaming Endpoint
+        </label>
+        <label>
+          <input type="radio" name="endpointType" value="normal"> Use Normal Endpoint
+        </label>
+      </div>
+    </div>
+  
+    <script>
+        const audioPlayer = document.getElementById('audioPlayer');
+        const requestButton = document.getElementById('requestButton');
+        const responseTimeSpan = document.getElementById('responseTime');
+        const playbackStartTimeSpan = document.getElementById('playbackStartTime');
+        const serverUrlInput = document.getElementById('serverUrl');
+        const textSentSpan = document.getElementById('textSent');
+        const messageLengthRadios = document.querySelectorAll('input[name="messageLength"]');
+        
+    const synonyms = {
+      "hello": [
+        "hi", "greetings", "salutations", "hey", "hello there", "good day", "good morning",
+        "good afternoon", "good evening", "what's up", "howdy", "hiya", "g'day", "welcome",
+        "bonjour", "hola", "hallo", "ciao", "namaste", "salaam", "how do you do", "yo", 
+        "ahoy", "sup", "whazzup", "aloha", "moin", "hey there", "hey yo", "how's it going",
+        "what's happening", "what's going on", "how goes it", "how are things", "how's life",
+        "how's your day", "good to see you", "pleased to meet you", "glad to see you", "let's chat",
+        "are you okay", "how have you been", "it's been a while", "nice to see you", "welcome back"
+      ],
+      "working": [
+        "operating", "functioning", "running", "active", "going", "working properly", "in operation",
+        "on", "in action", "engaged", "busy", "occupied", "in use", "in process", "operational",
+        "up and running", "in service", "online", "in working order", "effective", "efficacious",
+        "in effect", "in force", "valid", "live", "activated", "in play", "in gear", "powered up",
+        "working smoothly", "performing", "executing", "processing", "actionable", "workable",
+        "utilized", "employed", "in motion", "moving", "on the job", "on the go", "underway"
+      ],
+      "expected": [
+        "anticipated", "forecasted", "predicted", "foreseen", "projected", "estimated", "awaited",
+        "hoped for", "envisaged", "planned", "prophesied", "foretold", "assumed", "presumed",
+        "supposed", "reckoned", "calculated", "expected to be", "looked for", "contemplated",
+        "predicted to be", "believed to be", "thought to be", "imagined to be", "scheduled",
+        "due", "destined", "fated", "foreordained", "predestined", "predicted to happen",
+        "expected to occur", "anticipated to be", "hoped to be", "awaited to be", "seen as likely",
+        "considered likely", "judged to be", "envisaged to be", "foreseen to be", "on the cards"
+      ]
+    };
+    
+    const templates = [
+      "{greeting} {name}, I am {working} as {expected}.",
+      "{greeting} there! This is {name}, and everything is {working} {expected}.",
+      "Greetings! {name} reporting that all systems are {working} as {expected}."
+    ];
+    
+    const names = ["Ioannis", "Alex", "Maria", "John"];
+    
+    function randomizeText(template) {
+      const greeting = synonyms["hello"][Math.floor(Math.random() * synonyms["hello"].length)];
+      const name = names[Math.floor(Math.random() * names.length)];
+      const working = synonyms["working"][Math.floor(Math.random() * synonyms["working"].length)];
+      const expected = synonyms["expected"][Math.floor(Math.random() * synonyms["expected"].length)];
+      
+      return template
+        .replace("{greeting}", greeting)
+        .replace("{name}", name)
+        .replace("{working}", working)
+        .replace("{expected}", expected);
+    }
+    
+    function generateTextInput(length) {
+      const texts = [];
+      const numTexts = length === 'short' ? 1 : length === 'medium' ? getRandomInt(2, 3) : getRandomInt(4, 8);
+      
+      for (let i = 0; i < numTexts; i++) {
+        const template = templates[Math.floor(Math.random() * templates.length)];
+        texts.push(randomizeText(template));
+      }
+      
+      return texts.join('. ');
+    }
+    
+    function getRandomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+    
+    
+  
+    let currentMessage = '';
+
+function sendTTSRequest() {
+  const messageLength = document.querySelector('input[name="messageLength"]:checked').value;
+  const endpointType = document.querySelector('input[name="endpointType"]:checked').value;
+  const textInput = generateTextInput(messageLength);
+  currentMessage = textInput;
+  sendTTSRequestWithEndpoint(endpointType, textInput);
+}
+
+function switchEndpointMode() {
+  const endpointType = document.querySelector('input[name="endpointType"]:checked').value;
+  sendTTSRequestWithEndpoint(endpointType, currentMessage);
+}
+
+function sendTTSRequestWithEndpoint(endpointType, textInput) {
+  const startTime = Date.now();
+  const serverUrl = serverUrlInput.value.trim();
+  
+  let url;
+  let requestOptions;
+  
+  if (endpointType === 'streaming') {
+    const queryParams = new URLSearchParams({
+      text: textInput,
+      voice: "male_01.wav",
+      language: "en",
+      output_file: "myoutputfile.wav"
+    });
+    url = `${serverUrl.replace(/\/$/, '')}/api/tts-generate-streaming?${queryParams}`;
+    requestOptions = {};
+  } else {
+    url = `${serverUrl.replace(/\/$/, '')}/api/tts-generate`;
+    requestOptions = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        text_input: textInput,
+        text_filtering: "standard",
+        character_voice_gen: "male_01.wav",
+        narrator_enabled: "false",
+        narrator_voice_gen: "male_01.wav",
+        text_not_inside: "character",
+        language: "en",
+        output_file_name: "myoutputfile",
+        output_file_timestamp: "true",
+        autoplay: "true",
+        autoplay_volume: "0.8"
+      })
+    };
+  }
+  
+  textSentSpan.textContent = textInput;
+  
+  fetch(url, requestOptions)
+    .then(response => {
+      const responseTime = Date.now() - startTime;
+      responseTimeSpan.textContent = responseTime;
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      if (endpointType === 'streaming') {
+        return response.blob();
+      } else {
+        return response.json();
+      }
+    })
+    .then(data => {
+      if (endpointType === 'streaming') {
+        const audioUrl = URL.createObjectURL(data);
+        audioPlayer.src = audioUrl;
+        audioPlayer.onloadedmetadata = () => {
+          const playbackStartTime = Date.now() - startTime;
+          playbackStartTimeSpan.textContent = playbackStartTime;
+        };
+      } else {
+        const outputCacheUrl = data.output_cache_url;
+        const audioUrl = outputCacheUrl.replace('http://127.0.0.1:7851', serverUrl.replace(/\/$/, ''));
+        audioPlayer.src = audioUrl;
+        audioPlayer.onloadedmetadata = () => {
+          const playbackStartTime = Date.now() - startTime;
+          playbackStartTimeSpan.textContent = playbackStartTime;
+        };
+      }
+    })
+    .catch(error => {
+      console.error("Error:", error);
+    });
+}
+
+document.querySelectorAll('input[name="endpointType"]').forEach(radio => {
+  radio.addEventListener('change', switchEndpointMode);
+});
+
+    function saveServerUrl() {
+      const serverUrl = serverUrlInput.value.trim();
+      localStorage.setItem('serverUrl', serverUrl);
+    }
+    
+    function loadServerUrl() {
+      const serverUrl = localStorage.getItem('serverUrl');
+      if (serverUrl) {
+        serverUrlInput.value = serverUrl;
+      }
+    }
+    
+    requestButton.addEventListener('click', sendTTSRequest);
+    serverUrlInput.addEventListener('change', saveServerUrl);
+    
+    loadServerUrl();
+  </script>
+</body>
+</html>
